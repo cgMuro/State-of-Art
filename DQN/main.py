@@ -55,7 +55,8 @@ class ReplayMemory(object):
 
 
 
-# BUILD THE MODEL #
+# ----------------------------------- MODEL ----------------------------------- #
+
 class DQN(nn.Module):
     def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
@@ -86,7 +87,7 @@ class DQN(nn.Module):
 
 
 
-# INPUT EXTRACTION #
+# ----------------------------------- INPUT EXTRACTION ----------------------------------- #
 
 # Define transformation steps
 resize = T.Compose([
@@ -139,7 +140,7 @@ plt.show()
 
 
 
-# TRAINING #
+# ----------------------------------- TRAINING ----------------------------------- #
 
 BATCH_SIZE = 128
 GAMMA = 0.999        # Discount rate --> calculates the future discounted reward
