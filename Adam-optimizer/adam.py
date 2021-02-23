@@ -70,36 +70,42 @@ class Adam(Optimizer):
     ):
         """Functional API that performs Adam algorithm computation"""
 
+        # Iterate over the parameters
         for i, param in enumerate(params):
+            # Get the current required values
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
             step = state_steps[i]
 
+            # Check if AMSGrad variant
             if amsgrad:
                 max_exp_avg_sq = max_exp_avg_sqs[i]
 
+            # Define the bias corrections -> which are used to estimate the first-order moments (momentum-term) and the (uncentered) second-order moments
             bias_correction1 = 1 - beta1 ** step
             bias_correction2 = 1 - beta2 ** step
 
             if weight_dacay != 0:
                 grad = grad.add(param, alpha=weight_dacay)
 
-            # Decay the first and second momeent running average coefficient
-            exp_avg.mul_(beta1).add_(grad,  alpha=1-beta1)
-            exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1-beta2)
+            # Decay the first and second moment running average coefficient
+            exp_avg.mul_(beta1).add_(grad,  alpha=1-beta1)              # m_t <- beta_1 * m_{t-1} + (1 - beta_1) * grad_t
+            exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1-beta2)  # v_t <- beta_2 * v_{t-1} + (1 - beta_2) * (grad_t)^2
 
+            # Check if AMSGrad variant
             if amsgrad:
                 # Mantains the maximum of all 2nd moment running avg. till now
                 torch.maximum(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
                 # Use the max. for normalizing running avg. of gradient
-                denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)
+                denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)  # denom = [m_t / (1 - bias_1)] / [sqrt( v_t / (1 - bias_2) )] + eps)
             else:
-                denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)
+                denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)      # denom = [sqrt(v_t) / sqrt(bias_correction2) + eps]
 
-            step_size = lr / bias_correction1
+            step_size = lr / bias_correction1  # α = learning_rate / bias_correction1
 
-            param.addcdiv_(exp_avg, denom, value=-step_size)
+            # Update parameters
+            param.addcdiv_(exp_avg, denom, value=-step_size)  # θ_t <- θ_{t-1} - (α * denom)
 
 
     @torch.no_grad() # No grad decorator
