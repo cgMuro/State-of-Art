@@ -73,16 +73,16 @@ ngpu = 1
 dataset = dset.ImageFolder(
     root=dataroot,
     transform=transforms.Compose([
-        transforms.Resize(image_size),
-        transforms.CenterCrop(image_size),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        transforms.Resize(image_size),  # Resize image to the passed parameter
+        transforms.CenterCrop(image_size),  # Crops image to the center and keeping the size equal to the passed parameter
+        transforms.ToTensor(),     # Transform image to tensor
+        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))  # Normalize the tensor image using the passed mean and strandard deviation
     ])
 )
 
 # Create dataloader
 dataloader = torch.utils.data.DataLoader(
-    dataset, 
+    dataset=dataset, 
     batch_size=batch_size, 
     shuffle=True,
     num_workers=workers
@@ -127,21 +127,32 @@ class Generator(nn.Module):
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # Input is Z going into a convolution
-            nn.ConvTranspose2d(nz, ngf*8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf*8),
+            nn.ConvTranspose2d(     # The Convolutional Transposed layer is used for upsampling -> it generates an output feature map that has a spatial dimension greater than that of the input feature map
+                in_channels=nz,     # Number of channels in the input image, 100 in this case
+                out_channels=ngf*8, # Number of output channels produced by the convolution
+                kernel_size=4,      # Size of the kernel
+                stride=1,           # Stride of the convolution
+                padding=0,          # Padding added to both sides of each dimension in the input
+                bias=False          # Add a learnable bias to the output
+            ),
+            nn.BatchNorm2d(num_features=ngf*8),
             nn.ReLU(inplace=True)
+            
             # State size (ngf*8) * 4 * 4
             nn.ConvTranspose2d(ngf*8, ngf*4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf*4),
             nn.ReLU(inplace=True),
+
             # State size (ngf*8) * 8 * 8
             nn.ConvTranspose2d(ngf*4, ngf*2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf*2),
             nn.ReLU(inplace=True),
+
             # State size (ngf*2) * 16 * 16
             nn.ConvTranspose2d(ngf*2, ngf, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True),
+
             # State size (ngf) * 32 * 32
             nn.ConvTranspose2d(ngf, nc, 4, 2, 1, bias=False),
             nn.Tanh()
@@ -178,21 +189,32 @@ class Discriminator(nn.Module):
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # Input is (nc) * 64 * 64
-            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            nn.Conv2d(
+                in_channels=nc, 
+                out_channels=ndf, 
+                kernel_size=4, 
+                stride=2, 
+                padding=1, 
+                bias=False
+            ),
             nn.LeakyReLU(0.2, inplace=True),
-            # State sizee (ndf) * 32 * 32
+
+            # State size (ndf) * 32 * 32
             nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf*2),
             nn.LeakyReLU(0.2, inplace=True),
-            # State sizee (ndf*2) * 16 * 16
+
+            # State size (ndf*2) * 16 * 16
             nn.Conv2d(ndf*2, ndf*4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf*4),
             nn.LeakyReLU(0.2, inplace=True),
-            # State sizee (ndf*4) * 8 * 8
+
+            # State size (ndf*4) * 8 * 8
             nn.Conv2d(ndf*4, ndf*8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf*8),
             nn.LeakyReLU(0.2, inplace=True),
-            # State sizee (ndf*8) * 4 * 4
+
+            # State size (ndf*8) * 4 * 4
             nn.Conv2d(ndf*8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
@@ -268,7 +290,7 @@ for epoch in range(num_epochs):
         # Format batch
         real_cpu = data[0].to(device)
         b_size = real_cpu.size(0)
-        label = torch.full((b_size), real_label, dtype=torch.float, device=device)
+        label = torch.full(size=(b_size), fill_value=real_label, dtype=torch.float, device=device) # Creates a tensor of size "size" filled with values "fill_value"
         # Forward pass real batch through Discriminator
         output = netD(real_cpu).view(-1)
         # Calculate loss on all-real batch
@@ -279,12 +301,14 @@ for epoch in range(num_epochs):
 
         # Train with all-fake batch #
         # Generate batch of latent vector
-        noise = torch.randn(b_size, nz, 1, 1, device=device)
+        noise = torch.randn(size=b_size, out=nz, 1, 1, device=device)
         # Generate fake image batch with Generator
         fake = netG(noise)
         label.fill_(fake_label)
         # Classify all fake batch with Discriminator
-        output = netD(fake.detach()).view(-1)
+        output = netD(
+            fake.detach() # detach -> creates a tensor that share storage with tensor that does not require grad. It detaches the output from the computational graph
+        ).view(-1)
         # Calculate loss on all-fake batch
         errD_fake = criterion(output, label)
         # Calculate gradients for Discriminatorr in backward pass
@@ -321,7 +345,7 @@ for epoch in range(num_epochs):
         G_losses.append(errG.item())
         D_losses.append(errD.item())
 
-        # Check how the generator is doing by saving G's output on fixed_noise
+        # Check how the generator is doing by saving Generator's output on fixed_noise
         if (iters % 500 == 0) or ((epoch == num_epochs-1) and (i == len(dataloader)-1)):
             with torch.no_grad():
                 fake = netG(fixed_noise).detach().cpu()
