@@ -1,14 +1,17 @@
+# https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
+
 import torch
 from torch import Tensor
 import torch.nn as nn
 from typing import Type, Any, Callable, Union, List, Optional
 from torch.hub import load_state_dict_from_url
 
+# All ResNet types
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
            'wide_resnet50_2', 'wide_resnet101_2']
 
-
+# All ResNet URLs to the pre-trained model
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
@@ -21,17 +24,17 @@ model_urls = {
     'wide_resnet101_2': 'https://download.pytorch.org/models/wide_resnet101_2-32ee1156.pth',
 }
 
+# Functions that returns a Convolutonal layer
 
 def conv3x3(in_planes : int, out_planes : int, stride : int = 1, groups : int = 1, dilation : int = 1) -> nn.Conv2d:
     """3x3 Convolution with Padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=dilation, groups=groups, bias=False, dilation=dilation)
 
-
 def conv1x1(in_planes : int, out_planes : int, stride : int = 1) -> nn.Conv2d:
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
-
+# BasicBlock -> defines a basic residual block and its forward pass
 class BasicBlock(nn.Module):
     expansion : int = 1
 
@@ -48,22 +51,27 @@ class BasicBlock(nn.Module):
     ) -> None:
         super(BasicBlock, self).__init__()
 
+        # Check if a normalization layer was passed
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+        # Check for input errors
         if groups != 1 or base_width != 64:
             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
         if dilation > 1:
             raise NotImplementedError('Dilation > 1 not supported in BasicBlock')
-        # Both self.conv1 and self.downsample layers downsmple the input when stride != 1
+
+        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
+
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x : Tensor) -> Tensor:
+        # Get the identity
         identity = x
 
         out = self.conv1(x)
@@ -73,15 +81,20 @@ class BasicBlock(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
 
+        # Downsample the identity
         if self.downsample is not None:
             identity = self.downsample(x)
         
+        # Add the identity to the output of the last batch normalization layer
         out += identity
+        # Pass the result into relu
         out = self.relu(out)
 
         return out
 
-
+# Bottleneck -> defines the bottleneck architecture used to reduce computation.
+# It works by first putting a 1x1 convolution which saves computation power and reduces the vector's dimensions, then we have a 3x3 convolution
+# and finally we use another 1x1 convolution to up scale again the vector's dimensions
 class Bottleneck(nn.Module):
     # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution (self.conv2), while original implementation 
     # places the stride at the first 1x1 convolution (self.conv1), according to "Deep residual learning for image recognition" (https://arxiv.org/abs/1512.03385).
@@ -102,22 +115,29 @@ class Bottleneck(nn.Module):
     ) -> None:
         super(Bottleneck, self).__init__()
 
+        # Check if a normalization layer was passed
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
 
+        # Number of out channels for the convolutional layer
         width = int(planes * (base_width / 64.)) * groups
+
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
+
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
+
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
+
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x : Tensor) -> Tensor:
+        # Get the identity
         identity = x
 
         out = self.conv1(x)
@@ -131,17 +151,19 @@ class Bottleneck(nn.Module):
         out = self.conv3(out)
         out = self.bn3(out)
 
+        # Downsample the identity
         if self.downsample is not None:
             identity = self.downsample(x)
         
+        # Add the identity to the output of the last batch normalization layer
         out += identity
+        # Pass the result into relu
         out = self.relu(out)
 
         return out
 
-
+# ResNet -> define the whole Residual Network architecture
 class ResNet(nn.Module):
-
     def __init__(
         self,
         block : Type[Union[BasicBlock, Bottleneck]],
@@ -155,21 +177,25 @@ class ResNet(nn.Module):
     ) -> None:
         super(ResNet, self).__init__()
 
+        # Check if a normalization layer was passed
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
-        self._norm_layer = norm_layer
 
+        self._norm_layer = norm_layer
         self.inplanes = 64
         self.dilation = 1
 
         if replace_stride_with_dilation is None:
             # Each element in the tuple indicats if we should replace the 2x2 stride with a dilated convolution instead
             replace_stride_with_dilation = [False, False, False]
+        # Check for input errors
         if len(replace_stride_with_dilation) != 3:
             raise ValueError(f'replace_stride_with_dilation should be None or a 3-element tuple, got {replace_stride_with_dilation}')
 
         self.groups = groups
         self.base_width = width_per_group
+
+        # Define layers and functions
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -183,37 +209,46 @@ class ResNet(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                # Fills the input Tensor with values according to a normal distribution
+                nn.init.kaiming_normal_(tensor=m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                # Fills the input Tensor with the value "val"
+                nn.init.constant_(tensor=m.weight, val=1)
+                nn.init.constant_(tensor=m.bias, val=0)
 
         # Zero-initialize the last BN in each residual branch, so that the residual branch starts with zeros, and each residual block
         # behaves like an identity. This improves the model by 0.2~0.3% (according to https://arxiv.org/abs/1706.02677)
         if zero_init_residual:
-            for m in self.modules():
+            for m in self.modules():  # self.modules() -> returns an iterable to the layers defined in the model class
+                # Check if the architecture being used is Bottleneck
                 if isinstance(m, Bottleneck):
                     nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
+                # Check if the architecture being used is BasicBlock
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
 
-
+    # Define a function to build the layers using either BasicBlock or Bottleneck architectures
     def _make_layer(self, block : Type[Union[BasicBlock, Bottleneck]], planes : int, blocks : int, stride: int = 1, dilate: bool = False) -> nn.Sequential:
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
+
         if dilate:
             self.dilation *= stride
             stride = 1
+        
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 conv1x1(self.inplanes, planes * block.expansion, stride),
                 norm_layer(planes * block.expansion)
             )
 
+        # Init and build the layers
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer))
+
         self.inplanes = planes * block.expansion
+
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups, base_width=self.base_width, dilation=self.dilation, norm_layer=norm_layer))
         
@@ -221,16 +256,17 @@ class ResNet(nn.Module):
 
     
     def _forward_impl(self, x : Tensor) -> Tensor:
+        # Pass input into the first block (which is not residual)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-
+        # Pass input through the residual blocks
         x = self.layers1(x)
         x = self.layers2(x)
         x = self.layers3(x)
         x = self.layers4(x)
-
+        # Final fully connected layers preceded by an Average pooling layer
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
@@ -240,7 +276,7 @@ class ResNet(nn.Module):
     def forward(self, x : Tensor) -> Tensor:
         return self_forward_impl(x)
 
-
+# Function to load a pretrained model
 def _resnet(
     arch: str,
     block: Type[Union[BasicBlock, Bottleneck]],
@@ -249,7 +285,9 @@ def _resnet(
     progress: bool,
     **kwargs: Any
 ) -> ResNet:
+    # Define model
     model = ResNet(block, layers, **kwargs)
+    # Get the pretrained model from URL if true
     if pretrained:
         state_dict = load_state_dict_from_url(
             model_urls[arch],
