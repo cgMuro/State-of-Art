@@ -4,6 +4,7 @@ import torch
 import torch.optim.functional as F
 from torch.optim import Optimizer
 from typing import List
+import math
 
 # Inherit from Optimizer class which handles all the general optimizer functionalities
 class Adam(Optimizer):
@@ -44,7 +45,7 @@ class Adam(Optimizer):
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
         # Init default dictionary
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_dacay=weight_decay, amsgrad=amsgrad)
+        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
 
         super(Adam, self).__init__(params, defaults)
 
@@ -65,7 +66,7 @@ class Adam(Optimizer):
         beta1: float,
         beta2: float,
         lr: float,
-        weight_dacay: float,
+        weight_decay: float,
         eps: float
     ):
         """Functional API that performs Adam algorithm computation"""
@@ -86,8 +87,8 @@ class Adam(Optimizer):
             bias_correction1 = 1 - beta1 ** step
             bias_correction2 = 1 - beta2 ** step
 
-            if weight_dacay != 0:
-                grad = grad.add(param, alpha=weight_dacay)
+            if weight_decay != 0:
+                grad = grad.add(param, alpha=weight_decay)
 
             # Decay the first and second moment running average coefficient
             exp_avg.mul_(beta1).add_(grad,  alpha=1-beta1)              # m_t <- beta_1 * m_{t-1} + (1 - beta_1) * grad_t

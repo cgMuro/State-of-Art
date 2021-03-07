@@ -89,7 +89,7 @@ dataloader = torch.utils.data.DataLoader(
 )
 
 # Decide which device we want to run on
-device = torch.device('cuda:0', if (torch.cuda.is_available() and ngpu > 0) else 'cpu')
+device = torch.device('cuda:0' if (torch.cuda.is_available() and ngpu > 0) else 'cpu')
 
 # Plot some training images
 real_batch = next(iter(dataloader))
@@ -109,7 +109,7 @@ def weights_init(model):
         nn.init.normal_(model.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm') != -1:
         nn.init.normal_(model.weigh.data, 1.0, 0.02)
-        nn.init.constant_(m.bias.data, 0)
+        nn.init.constant_(model.bias.data, 0)
 
 
 # GENERATOR #
@@ -136,7 +136,7 @@ class Generator(nn.Module):
                 bias=False          # Add a learnable bias to the output
             ),
             nn.BatchNorm2d(num_features=ngf*8),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
             
             # State size (ngf*8) * 4 * 4
             nn.ConvTranspose2d(ngf*8, ngf*4, 4, 2, 1, bias=False),
@@ -301,7 +301,7 @@ for epoch in range(num_epochs):
 
         # Train with all-fake batch #
         # Generate batch of latent vector
-        noise = torch.randn(size=b_size, out=nz, 1, 1, device=device)
+        noise = torch.randn(b_size, nz, 1, 1, device=device)
         # Generate fake image batch with Generator
         fake = netG(noise)
         label.fill_(fake_label)
@@ -358,7 +358,7 @@ for epoch in range(num_epochs):
 
 plt.figure(figsize=(10, 5))
 plt.title("Generator and Discriminator Loss During Training")
-plt.plot(G_lossees, label='G')
+plt.plot(G_losses, label='G')
 plt.plot(D_losses, label='D')
 plt.xlabel('Iterations')
 plt.ylabel('Loss')

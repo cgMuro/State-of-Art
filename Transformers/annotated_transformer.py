@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 import seaborn
 
 seaborn.set_context(context='talk')
-%matplotlib inline
 
 
 # ----------------------------------- Model Architecture ----------------------------------- #
@@ -107,7 +106,7 @@ class SublayerConnection(nn.Module):
 class EncoderLayer(nn.Module):
     "Encoder is made up of self-attention and feed forward network"
     def __init__(self, size, self_attn, feed_forward, dropout):
-        super(EncoderDecoder, self).__init__()
+        super(EncoderLayer, self).__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.sublayer = clones(SublayerConnection(size=size, dropout=dropout), 2)
@@ -287,9 +286,9 @@ def make_model(
     # Encode-Decoder model
     model = EncoderDecoder(
         # Encoder
-        Encoder(EncoderLayer(size=d_model, self_attn=c(attn), feed_forward=c(ff), dropout=dropout), N=N)
+        Encoder(EncoderLayer(size=d_model, self_attn=c(attn), feed_forward=c(ff), dropout=dropout), N=N),
         # Decodeer
-        Decoder(DecoderLayer(size=d_model, self_attn=c(attn), src_att=c(attn), feed_forward=c(ff), dropout=dropout), N=N)
+        Decoder(DecoderLayer(size=d_model, self_attn=c(attn), src_att=c(attn), feed_forward=c(ff), dropout=dropout), N=N),
         # Final feed forward network
         nn.Sequential(Embeddings(d_model=d_model, vocab=src_vocab), c(position)),
         nn.Sequential(Embeddings(d_model=d_model, vocab=tgt_vocab), c(position)),

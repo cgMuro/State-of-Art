@@ -45,8 +45,8 @@ labels = torch.tensor([1, 0]).unsqueeze(0)
 # Define learning rate scheduler
 scheduler = get_linear_schedule_with_warmup(
     optimizer=optimizer,  # Pass in the optimizer
-    num_warmup_steps=num_warmup_steps,  # Number of steps for the warmup phase, after which the learning rate decreases linearly
-    num_training_steps=num_training_steps  # Total number of training steps
+    num_warmup_steps=0.1 ,  # Number of steps for the warmup phase, after which the learning rate decreases linearly
+    num_training_steps=100000  # Total number of training steps
 )
 
 # Get prediction from model
@@ -92,8 +92,8 @@ training_args = TrainingArguments(
 trainer = Trainer(
     model=model,                      # The instantiated 🤗 Transformers model to be trained
     args=training_args,               # Training arguments
-    train_dataset=train_dataset,      # Training dataset
-    eval_dataset=test_dataset         # Evaluation dataset
+    train_dataset=torch.tensor([1]),      # Training dataset
+    eval_dataset=torch.tensor([0])         # Evaluation dataset
 )
 
 # Start training

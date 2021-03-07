@@ -75,7 +75,7 @@ def read_langs(lang1, lang2, reverse=False):
     lines = open(f'data/{lang1}-{lang2}.txt', encoding='utf-8').read().strip().split('\n')
 
     # Split every line into pairs and normalize
-    pairs = [[normalize_string(s) for pair in line.split('\t')] for line in lines]
+    pairs = [[normalize_string(pair) for pair in line.split('\t')] for line in lines]
 
     # Reverse pairs
     if reverse:
@@ -107,7 +107,7 @@ ENGLISH_PREFIXIES = (
 )
 
 def filter_pair(pair):
-    return len(pair[0].split(' ')) < MAX_LENGTH and len(pair[1].split(' ')) < MAX_LENGTH and pair[1].startswith(eng_prefixes)
+    return len(pair[0].split(' ')) < MAX_LENGTH and len(pair[1].split(' ')) < MAX_LENGTH and pair[1].startswith(ENGLISH_PREFIXIES)
 def filter_pairs(pairs):
     return [pair for pair in pairs if filter_pair(pair)]
 
@@ -397,7 +397,7 @@ def timeSince(since, percent):
     s  = now - since
     es = s / (percent)
     rs = es - s
-    return '%s (- %s)' % (asMinutes(s), asMinutes(res))
+    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
 # TRAINING PROCESS #

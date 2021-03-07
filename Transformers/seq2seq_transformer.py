@@ -57,9 +57,7 @@ class TransformerModel(nn.Module):
     # Defines function to mask the yet to predict words in the output sequence
     def generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)  # Returns the part of the matrix above the diagonal and then it transposes the matrix
-        mask = mask.float()
-               .masked_fill(mask == 0, float('-inf'))   # Fills the mask tensor with '-inf' where mask == 0
-               .masked_fill(mask == 1, flaot(0.0))      # Fills the mask tensor with '0.0' where mask == 1
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))   # First masked_fill -> fills the mask tensor with '-inf' where mask == 0 # Second masked_fill -> fills the mask tensor with '0.0' where mask == 1
         return mask
 
     # Defines the weights initialization
