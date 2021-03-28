@@ -8,7 +8,7 @@ I linked all the resources used for both the theoretical understanding and the c
 
 <br>
 
-### Topics Covered
+#### Topics covered
 * Adam Optimizer
 * AlexNet
 * Bidirectional Encoder Representations from Transformers (BERT)
@@ -19,7 +19,7 @@ I linked all the resources used for both the theoretical understanding and the c
 * ResNet
 * Transformers (both in Computer Vision and Natural Language Processing)
 
-### Next topics on the List
+#### Next topics on the list
 * MuZero (DeepMind)
 * DALL•E (OpenAI)
 * CLIP (OpenAI)
