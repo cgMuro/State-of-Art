@@ -3,6 +3,7 @@ import torch
 from torchvision import transforms
 import tensorflow as tf
 
+# Define epsilon value for logit-Laplace distribution
 logit_laplance_epsilon: float = 0.1
 
 # The decoder of the dVAE produces six feature maps representing the sufficient statistics of the logit-Laplace distribution
