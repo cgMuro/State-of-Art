@@ -43,13 +43,13 @@ class Attention(nn.Module):
 
     def forward(self, x, mask=None):
         # Get input shape and heads number
-        b, n, c = x.shape()
+        b, n, c = x.size()
         h = self.heads
         # Calculate query, key and value vectors
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         # Reshape and decompose the qkv to get the query, key and value vectors individually
         q, k, v = map(lambda t: t.view(b, n, h, c // h).transpose(1, 2), qkv) # rearrange(t, 'b n (h d) -> b h n d', h=h)
-        # Calculate the scores and normalize (dividing by the square root of dim_heads)
+        # Calculate the scores and normalize (dividing by the square root of dim_head)
         dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
         # Calculate the mask value (used to reduce the importance of the masked vectors)
@@ -69,7 +69,7 @@ class Attention(nn.Module):
 
         # Multiply the value vectors to the corresponding scores
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
-        out = out.traspose(1, 2).view(b, n, h*c)  # rearrange(out, 'b h n d -> b n (h d)')
+        out = rearrange(out, 'b h m d -> b n (h d)')
         # Project the output vector (if needed)
         out = self.to_out(out)
 
@@ -99,7 +99,7 @@ class Trasformer(nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool='cls', channels=3, dim_head=64, dropout=0., emb_dropout=0.):
+    def __init__(self, *args, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool='cls', channels=3, dim_head=64, dropout=0., emb_dropout=0.):
         super().__init__()
 
         # Check for errors
@@ -122,7 +122,7 @@ class ViT(nn.Module):
         # Define dropout
         self.dropout = nn.Dropout(emb_dropout)
         # Define transformer
-        self.transformer = Trasformer(dim=dim, depth=depth, heads=heads,  dim_head=dim_head, mlp_dim=mlp_dim, dropout=dropout)
+        self.transformer = Trasformer(dim=dim, depth=depth, heads=heads, dim_head=dim_head, mlp_dim=mlp_dim, dropout=dropout)
         
         self.pool = pool
         self.to_latent = nn.Identity()  # Identity matrix
@@ -139,7 +139,7 @@ class ViT(nn.Module):
         b, n, c = x.shape
 
         # Tokens (+ dropout)
-        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
+        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding[:, :(n+1)]
         x = self.dropout(x)
