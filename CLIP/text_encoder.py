@@ -6,12 +6,12 @@ from utils import ModifiedLayerNorm
 class TransformerTextEncoder(nn.Module):
     def __init__(
         self,
-        vocab_size: int,           # Define size of vocabulary
-        max_length: int,           # Define sequence length
-        width: int,                # Dimension for the embeddings 
-        n_blocks: int,             # Number of blocks that compose the transformer (i.e. the depth)
-        output_dim: int,           # Dimension of the output
-        n_heads: int = 8,          # Number of heads for each multi-head attention layer
+        output_dim: int,           # Dimension of the output [possible values from the paper: 512, 768]
+        vocab_size: int = 49152,   # Define size of vocabulary
+        max_length: int = 76,      # Define maximum sequence length
+        width: int = 512,          # Dimension for the embeddings [possible values from the paper: 512, 768]
+        n_blocks: int = 12,        # Number of blocks that compose the transformer (i.e. the depth) [possible values from the paper: 12, 16]
+        n_heads: int = 8,          # Number of heads for each multi-head attention layer [possible values from the paper: 8, 12]
         head_dim: int = 64,        # Dimension of each multi-head layer
         dropout: float = 0.5       # Define dropout
     ):
@@ -24,12 +24,12 @@ class TransformerTextEncoder(nn.Module):
         # Define mask
         mask = self.get_mask()
 
-        # Define embeddings
+        # Define token and positional embeddings
         self.token_embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=width)
         self.positional_embedding = nn.Parameter(torch.empty(max_length, width))
 
         # Define transformer
-        self.transformer = Transformer(width=width, n_blocks=n_blocks, n_heads=n_heads, head_dim=head_dim, dropout=dropout, mask=mask)
+        self.transformer = Transformer(n_embeddings=width, n_blocks=n_blocks, n_heads=n_heads, head_dim=head_dim, dropout=dropout, mask=mask)
 
         # Define modified layer normalization
         self.layernorm = ModifiedLayerNorm(width)
@@ -75,7 +75,7 @@ class TransformerTextEncoder(nn.Module):
         x = x + self.positional_embedding(x).type(x.dtype)
         x = x.permute(1, 0, 2)
 
-        # Apply transformer
+        # Apply transformer, permute and normalize
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # shape = [batch_size, n_ctx, transformer.width]
         x = self.layernorm(x).type(x.dtype)
