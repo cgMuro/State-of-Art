@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torchvision import transforms
-from typing import Union
+import typing
 import PIL
+from tokenizer import SimpleTokenizer
 
 class ModifiedLayerNorm(nn.LayerNorm):
     """ Subclass torch's LayerNorm to handle fp16 """
@@ -13,7 +14,7 @@ class ModifiedLayerNorm(nn.LayerNorm):
 
 
 # Image augmenter function
-def augment_image(image: Union[torch.Tensor, PIL.Image.Image], size):
+def augment_image(image: typing.Union[torch.Tensor, PIL.Image.Image], size):
     if isinstance(image, torch.Tensor):
         # Define transformations to apply for input image of type torch.Tensor
         transform = transforms.Compose([
@@ -41,7 +42,7 @@ def augment_image(image: Union[torch.Tensor, PIL.Image.Image], size):
 
 
 # Applies tokenizer to input text -> returns the tokenized representation of the given input string(s)
-def tokenize(tokenizer, text: Union[str, list(str)], max_length: int = 76):
+def tokenize(tokenizer: SimpleTokenizer, text: typing.Union[str, typing.List[str]], max_length: int = 76):
     # If the input is a string transform it into an array
     if isinstance(text, str): text = [text]
 
