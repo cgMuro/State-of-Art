@@ -36,8 +36,8 @@ class Transformer(nn.Module):
     def forward(self, x: torch.Tensor):
         # Iterate through the list of modules and pass the input
         for attention, feedforward in self.layers:
-            x = x + attention(self.layernorm_1(x), mask=self.mask)  # Residual connection + attention
-            x = x + feedforward(self.layernorm_2(x))                # Residual connection + feedforward
+            x = x + attention(self.layernorm_1(x))     # Residual connection + attention
+            x = x + feedforward(self.layernorm_2(x))   # Residual connection + feedforward
         return x
 
 class Attention(nn.Module):
@@ -69,12 +69,12 @@ class Attention(nn.Module):
 
     def forward(self, x: torch.Tensor):
         # Get input shape
-        b, n, c = x.shape()
+        b, n, c = x.shape
 
         # Calculate query, key and value vectors
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         # Reshape and decompose qkv to get query, key and value vectors individually
-        q, k, v = map(lambda t: einops.rearrange(t, 'b n (h d) -> b h n d', h=self.n_heads))
+        q, k, v = map(lambda t: einops.rearrange(t, 'b n (h d) -> b h n d', h=self.n_heads), qkv)
         # Calculate the scores and normalize (dividing by the square root of head_dim)
         dots = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
@@ -83,23 +83,15 @@ class Attention(nn.Module):
 
         # Apply mask if required
         if self.mask is not None:
-            # Pad mask
-            mask = nn.functional.pad(self.mask.flatten(1), (1, 0), value=True)
-            # Check for errors
-            assert mask.shape[-1] == dots.shape[-1], 'Mask has incorrect dimensions'
-            # Rearrange mask
-            mask = einops.rearrange(mask, 'b i -> b () i ()') * einops.rearrange(mask, 'b j -> b () () j')
             # Fill the scores (the "dots" matrix) with the mask values
-            dots.masked_fill(~mask, mask_value)
-            # Delete the mask
-            del mask
+            dots.masked_fill(self.mask == 1, float('-inf'))  # Fill the mask with float(-inf) where it's equal to 1
 
         # Softmax of the scores
         attention = dots.softmax(dim=-1)
 
         # Multiply the value vectors to the corresponding scores
         out = torch.einsum('b h i j, b h j d -> b h i d', attention, v)
-        out = einops.rearrange(out, 'b h m d -> b n (h d)')
+        out = einops.rearrange(out, 'b h n d -> b n (h d)')
         # Project the output vector (if needed)
         out = self.to_out(out)
 
