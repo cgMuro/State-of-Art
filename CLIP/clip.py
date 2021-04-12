@@ -27,14 +27,14 @@ class CLIP(nn.Module):
         self.image_encoder = ViT(image_size=image_size, patch_size=patch_size, output_dim=emb_dim, width=vision_width, n_blocks=vision_blocks, n_heads=vision_heads, channels=3, head_dim=64, mask=None, dropout=0.5)
 
         # Define text encoder (vanilla Transformer)
-        self.text_encoder = TransformerTextEncoder(output_dim=emb_dim, vocab_size=vocab_size, max_length=max_length, width=text_width, n_blocks=text_blocks, n_heads=text_heads, head_dim=64, dropout=0.5)
+        self.text_encoder = TransformerTextEncoder(output_dim=emb_dim, vocab_size=vocab_size, max_length=max_length, width=text_width, n_blocks=text_blocks, n_heads=text_heads, head_dim=64, dropout=0.5, tensor_type=self.image_encoder.conv1.weight.dtype)
 
         # Define logit scale -> scales pairwise cosine similarities
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))  # We use numpy because it seems to be more precise
 
     def forward(self, image: torch.Tensor, text: torch.Tensor):
         # Get image and text features
-        image_features = self.image_encoder(image)
+        image_features = self.image_encoder(image.type(self.image_encoder.conv1.weight.dtype))
         text_features = self.text_encoder(text)
 
         # Normalize features
