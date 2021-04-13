@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from typing import Tuple
 from image_encoder import ViT
 from text_encoder import TransformerTextEncoder
 
@@ -8,6 +9,7 @@ class CLIP(nn.Module):
     def __init__(
         self,
         emb_dim: int = 512,        # Multi-modal embedding space of images and text encodings
+        temperature: Tuple[float, float] = (0.07, 100), # Define temperature values (initial, maximum)
         # Parameters for images
         image_size: int = 224,     # Size of the input image
         patch_size: int = 32,      # Size of the patch in which the image will be divided
@@ -23,6 +25,9 @@ class CLIP(nn.Module):
     ):
         super().__init__()
 
+        self.initial_temp = temperature[0]
+        self.max_temp = temperature[1]
+
         # Define image encoder (Vision Transformer)
         self.image_encoder = ViT(image_size=image_size, patch_size=patch_size, output_dim=emb_dim, width=vision_width, n_blocks=vision_blocks, n_heads=vision_heads, channels=3, head_dim=64, mask=None, dropout=0.5)
 
@@ -30,7 +35,7 @@ class CLIP(nn.Module):
         self.text_encoder = TransformerTextEncoder(output_dim=emb_dim, vocab_size=vocab_size, max_length=max_length, width=text_width, n_blocks=text_blocks, n_heads=text_heads, head_dim=64, dropout=0.5, tensor_type=self.image_encoder.conv1.weight.dtype)
 
         # Define logit scale -> scales pairwise cosine similarities
-        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))  # We use numpy because it seems to be more precise
+        self.logit_scale = nn.Parameter(torch.tensor([np.log(1 / self.initial_temp)]))  # We use numpy because it seems to be more precise
 
     def forward(self, image: torch.Tensor, text: torch.Tensor):
         # Get image and text features
@@ -42,7 +47,8 @@ class CLIP(nn.Module):
         text_embedding = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # Cosine similarity as logits
-        logits_per_image = self.logit_scale.exp() * image_embedding @ text_embedding.t()
-        logits_per_text = self.logit_scale.exp() * text_embedding @ image_embedding.t()
+        logit_scale = torch.clamp(self.logit_scale.exp(), max=self.max_temp).type(image_embedding.dtype)
+        logits_per_image = logit_scale * image_embedding @ text_embedding.t()
+        logits_per_text = logit_scale * text_embedding @ image_embedding.t()
 
         return logits_per_image, logits_per_text
