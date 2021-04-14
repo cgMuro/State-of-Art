@@ -1,7 +1,10 @@
+import math
 import random
 import torch
+import torch.nn as nn
 from torchvision import transforms
 import tensorflow as tf
+import PIL
 
 # Define epsilon value for logit-Laplace distribution
 logit_laplance_epsilon: float = 0.1
@@ -20,40 +23,52 @@ def unmap_image(x: torch.Tensor) -> torch.Tensor:
 
 
 # Data augmentation processing for images
-def preprocess_image(img: torch.Tensor, target_res: int = 256, channel_count: int = 3) -> torch.Tensor:
-    h, w = img.size()[0], img.size()[1]
-    s_min = torch.min(torch.tensor(h), torch.tensor(w))
+def preprocess_image(img, target_img_size):
+    # Get the minimum size of input img
+    s = min(img.size()[1], img.size()[2])
 
-    # Apply random crop
-    img = image_random_crop(img, output_size=(2 * [s_min] + [3]))
+    if s < target_img_size:
+        raise ValueError(f'Minimum dimension for image {s} is {target_img_size}')
+    
+    # Get size
+    size = (
+        round(target_img_size / s * img.size()[1]),
+        round(target_img_size / s * img.size()[2])
+    )
 
-    # Get random uniform distribution
-    t_min = torch.min(s_min, torch.tensor(round(9 / 8 * target_res)))
-    t_max = torch.min(s_min, torch.tensor(round(12 / 8 * target_res)))
-    t = (t_min - (t_max + 1)) * torch.rand([]) + (t_max + 1)
-
-    # Resize image -> I had to use tensorflow here because of the lack of alternatives in PyTorch (torchvision.transforms.functional.resize apparently only works with PIL images for now)
-    t = tf.convert_to_tensor(t.numpy())   # Convert torch.Tensor to numpy array and then to tf.Tensor
-    img = tf.image.resize(img, size=[t, t], method=tf.image.ResizeMethod.AREA)  # Apply image resize with area interpolation
-    img = torch.from_numpy(img.numpy())   # Convert tf.Tensor to numpy array and then back to torch.Tensor 
-
-    # Clamp the image values between 0 and 255, round the resulting tensor and change the type to uint8
-    img = (torch.round(torch.clamp(img, min=0, max=255))).type(torch.uint8)
-
-    # Apply random crop
-    img = image_random_crop(img, output_size=(2 * [target_res] + [channel_count]))
-
-    # Randomly flip the image orizontally, with a 1 in 2 chance
-    if random.random() < 0.5:
-        return transforms.functional.hflip(img)
+    # Check the type of input image
+    if isinstance(img, torch.Tensor):
+        img = transforms.functional.resize(img, size)
+        img = transforms.functional.center_crop(img, output_size=(2 * [target_img_size]))
+        img = torch.unsqueeze(img, 0)
+    elif isinstance(img, PIL.Image.Image):
+        img = transforms.functional.resize(img, size, interpolation=PIL.Image.LANCZOS)
+        img = transforms.functional.center_crop(img, output_size=(2 * [target_img_size]))
+        img = torch.unsqueeze(transforms.ToTensor()(img), 0)
     else:
-        return img
-        
-# Function that applies random crop
-def image_random_crop(img, output_size):
-    h, w = img.size()[0], img.size()[1]
-    th, tw, _ = output_size
-    if w == tw and h == th:
-        return transforms.functional.crop(img, 0, 0, h, w)
-    else:
-        return transforms.functional.crop(img, random.randint(0, h - th), random.randint(0, w - tw), h, w)
+        raise TypeError(f'Input image can only be of either type torch.Tensor or PIL.Image.Image, receive {type(img)}')
+
+    return  map_image(img)
+
+ 
+# Modified version of nn.Conv2d from https://github.com/openai/DALL-E/blob/master/dall_e/utils.py
+class ModifiedConv2d(nn.Module):
+    def __init__(
+        self,
+        in_planes: int,
+        out_planes: int,
+        kernel_width: int
+    ):
+        super().__init__()
+
+        weight = torch.empty(size=(out_planes, in_planes, kernel_width, kernel_width))
+        weight.normal_(std=(1 / math.sqrt(in_planes * kernel_width ** 2)))
+        bias = torch.zeros(size=(out_planes,))
+
+        self.weight = nn.Parameter(weight)
+        self.bias = nn.Parameter(bias)
+        self.padding = (kernel_width - 1) // 2
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.conv2d(input=x, weight=self.weight, bias=self.bias, padding=self.padding)
+
