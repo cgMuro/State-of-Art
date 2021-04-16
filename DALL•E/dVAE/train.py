@@ -7,30 +7,33 @@ from utils import preprocess_image, map_image, unmap_image
 
 
 # ----------------------------------- DATA ----------------------------------- #
+# Dummy data
 images = [torch.randn(3, 256, 256)]
 
 
 # ----------------------------------- TRAINING ----------------------------------- #
-
 # TRAINING PARAMETERS
-EPOCHS = 10
-BATCH_SIZE = 8
-VOCAB_SIZE = 8192
+
+EPOCHS: int = 10
+BATCH_SIZE: int = 8
+VOCAB_SIZE: int = 8192
+IMAGE_SIZE: int = 256
+IN_PLANES: int = 3
+HIDDEN_PLANES: int = 256
+OUT_PLANES: int = 3
+BLOCKS_PER_GROUP: int = 1
+
 # Define relaxation temperature
-TEMPERATURE = 1.0
-MIN_TEMPERATURE = 0.0625
-TEMPERATURE_ANNELLING = 6.25e-6
+TEMPERATURE: float = 1.0
+MIN_TEMPERATURE: float = 0.0625
+TEMPERATURE_ANNELLING: float = 6.25e-6
+
 # Define KL loss weight
-KL_LOSS_WEIGHT_INITIAL = 0
-KL_LOSS_WEIGHT_MAX = 6.6
-KL_LOSS_WEIGHT_UPDATES = 5000
+KL_LOSS_WEIGHT_INITIAL: float = 0.0
+KL_LOSS_WEIGHT_MAX: float = 6.6
+KL_LOSS_WEIGHT_UPDATES: int = 5000
 
-IMAGE_SIZE = 256
-IN_PLANES = 3
-HIDDEN_PLANES = 256
-OUT_PLANES = 3
-BLOCKS_PER_GROUP = 1
-
+# Get device
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -94,7 +97,7 @@ for epoch in range(EPOCHS):
         loss.backward()
         # Update parameters
         optimizer.step()
-        # Update scheduler
+        # Update learning rate scheduler
         lr_scheduler.step()
         # Update temperature and KL weight
         temperature = np.maximum(temperature * np.exp(-TEMPERATURE_ANNELLING * i), MIN_TEMPERATURE)

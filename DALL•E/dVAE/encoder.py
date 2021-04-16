@@ -6,11 +6,11 @@ from utils import ModifiedConv2d
 class Encoder(nn.Module):
     def  __init__(
             self,
-            in_planes: int = 3,
-            hidden_planes: int = 256,
-            out_planes: int = 10,
-            blocks_per_group: int = 2,
-            vocab_size: int = 8192
+            in_planes: int = 3,         # Input channels
+            hidden_planes: int = 256,   # Hidden units
+            out_planes: int = 10,       # Output channels
+            blocks_per_group: int = 2,  # Number of ResNet's bottleneck blocks for each group
+            vocab_size: int = 8192      # Size of vocaboulary
         ):
         super().__init__()
         

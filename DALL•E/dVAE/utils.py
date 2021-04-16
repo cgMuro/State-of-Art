@@ -1,9 +1,8 @@
 import math
-import random
+import typing
 import torch
 import torch.nn as nn
 from torchvision import transforms
-import tensorflow as tf
 import PIL
 
 # Define epsilon value for logit-Laplace distribution
@@ -23,7 +22,7 @@ def unmap_image(x: torch.Tensor) -> torch.Tensor:
 
 
 # Data augmentation processing for images
-def preprocess_image(img, target_img_size):
+def preprocess_image(img: typing.Union[torch.Tensor, PIL.Image.Image], target_img_size: int) -> torch.Tensor:
     # Get the minimum size of input img
     s = min(img.size()[1], img.size()[2])
 
@@ -55,14 +54,17 @@ def preprocess_image(img, target_img_size):
 class ModifiedConv2d(nn.Module):
     def __init__(
         self,
-        in_planes: int,
-        out_planes: int,
-        kernel_width: int
+        in_planes: int,    # Input channels
+        out_planes: int,   # Output channels
+        kernel_width: int  # Basically kernel size used in nn.Conv2d
     ):
         super().__init__()
 
-        weight = torch.empty(size=(out_planes, in_planes, kernel_width, kernel_width))
-        weight.normal_(std=(1 / math.sqrt(in_planes * kernel_width ** 2)))
+        # Define weight
+        weight = torch.empty(size=(out_planes, in_planes, kernel_width, kernel_width))  # Tensor filled with uninitialized data of the shape passed in "size"
+        weight.normal_(std=(1 / math.sqrt(in_planes * kernel_width ** 2)))  # Fills "weight" with elements samples from the normal distribution parameterized by std
+
+        # Define bias
         bias = torch.zeros(size=(out_planes,))
 
         self.weight = nn.Parameter(weight)
@@ -70,5 +72,5 @@ class ModifiedConv2d(nn.Module):
         self.padding = (kernel_width - 1) // 2
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Apply2D convolution over the input x
         return torch.nn.functional.conv2d(input=x, weight=self.weight, bias=self.bias, padding=self.padding)
-

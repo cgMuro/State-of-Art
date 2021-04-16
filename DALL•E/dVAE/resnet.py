@@ -6,19 +6,22 @@ from utils import ModifiedConv2d
 class Bottleneck(nn.Module):
     def __init__(
         self,
-        in_planes: int,
-        out_planes: int,
+        in_planes: int,   # Input channels
+        out_planes: int,  # Output channels
         architecture: str # Either encoder or decoder (used to define downsampling or upsampling)
     ) -> None:
         super().__init__()
 
+        # Check architecture parameter
         if architecture != 'decoder' and architecture != 'encoder':
             raise ValueError('"architecture" can only have either "decoder" or "encoder" value')
 
+        # Define in, out and hidden planes
         self.in_planes = in_planes
         self.out_planes = out_planes
         self.hidden_planes = self.out_planes // 4
 
+        # Define encoder architecture
         if architecture == 'encoder':
             self.net = nn.Sequential(
                 nn.ReLU(),
@@ -34,6 +37,7 @@ class Bottleneck(nn.Module):
                 ModifiedConv2d(self.hidden_planes, self.out_planes, 1),
                 nn.BatchNorm2d(self.out_planes)
             )
+        # Define decoder architecture
         elif architecture == 'decoder':
             self.net = nn.Sequential(
                 nn.ReLU(),
@@ -51,6 +55,7 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x : torch.Tensor) -> torch.Tensor:
+        # Define identity based on in and out planes
         if self.in_planes != self.out_planes:
             identity = ModifiedConv2d(self.in_planes, self.out_planes, 1)
         else:
@@ -72,6 +77,7 @@ class ResNet(nn.Module):
     ) -> None:
         super().__init__()
 
+        # Check architecture parameter
         if architecture != 'decoder' and architecture != 'encoder':
             raise ValueError('"architecture" can only have either "decoder" or "encoder" value')
 
@@ -81,12 +87,14 @@ class ResNet(nn.Module):
         self.block = Bottleneck
         self.architecture = architecture
 
+        # Define encoder architecture
         if architecture == 'encoder':
             self.layers1 = self._make_block(self.hidden_planes, self.hidden_planes)
             self.layers2 = self._make_block(self.hidden_planes, 2 * self.hidden_planes)
             self.layers3 = self._make_block(2 * self.hidden_planes, 4 * self.hidden_planes)
             self.layers4 = self._make_block(4 * self.hidden_planes, 8 * self.hidden_planes)
             self.sampling = nn.MaxPool2d((2, 2))
+        # Define decoder architecture
         elif architecture == 'decoder':
             self.layers1 = self._make_block(self.in_planes, 8 * self.hidden_planes)
             self.layers2 = self._make_block(8 * self.hidden_planes, 4 * self.hidden_planes)
@@ -94,6 +102,7 @@ class ResNet(nn.Module):
             self.layers4 = self._make_block(2 * self.hidden_planes, 1 * self.hidden_planes)
             self.sampling = nn.UpsamplingNearest2d(scale_factor=2)
 
+        # Parameters initialization
         for m in self.modules():
             if isinstance(m, ModifiedConv2d):
                 # Fills the input Tensor with values according to a normal distribution
@@ -103,8 +112,8 @@ class ResNet(nn.Module):
                 nn.init.constant_(tensor=m.weight, val=1)
                 nn.init.constant_(tensor=m.bias, val=0)
 
-    # Define a function to build the layers using either BasicBlock or Bottleneck architectures
     def _make_block(self, in_planes: int, hidden_planes: int) -> nn.Sequential:
+        """ Defines the building of each layer's blocks """
         # Init and build the layers
         layers = []
 
@@ -116,7 +125,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x : torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Pass input through the residual blocks
         x = self.layers1(x)
         x = self.sampling(x)
