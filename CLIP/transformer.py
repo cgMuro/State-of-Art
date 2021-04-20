@@ -12,11 +12,8 @@ class Transformer(nn.Module):
         n_heads: int,                # Number of heads for the multihead attention
         head_dim: int = 64,          # Number of dimensions for each head in multihead attention
         dropout: float = 0.5,        # Dropout value
-        mask: torch.Tensor = None    # Mask value
     ):
         super().__init__()
-
-        self.mask = mask
 
         # Define list of modules
         self.layers = nn.ModuleList([])
@@ -24,7 +21,7 @@ class Transformer(nn.Module):
         for _ in range(n_blocks):
             self.layers.append(nn.ModuleList([
                 # Multi-head attention block
-                Attention(n_embeddings=n_embeddings, n_heads=n_heads, head_dim=head_dim, dropout=dropout, mask=mask),
+                Attention(n_embeddings=n_embeddings, n_heads=n_heads, head_dim=head_dim, dropout=dropout),
                 # Feedforward block
                 FeedForward(width=n_embeddings, dropout=dropout)
             ]))
@@ -33,10 +30,10 @@ class Transformer(nn.Module):
         self.layernorm_1 = ModifiedLayerNorm(n_embeddings)
         self.layernorm_2 = ModifiedLayerNorm(n_embeddings)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None):
         # Iterate through the list of modules and pass the input
         for attention, feedforward in self.layers:
-            x = x + attention(self.layernorm_1(x))     # Residual connection + attention
+            x = x + attention(self.layernorm_1(x), mask=mask)     # Residual connection + attention
             x = x + feedforward(self.layernorm_2(x))   # Residual connection + feedforward
         return x
 
@@ -48,12 +45,10 @@ class Attention(nn.Module):
         n_heads: int,               # Number of heads
         head_dim: int = 64,         # Number of dimensions for each head
         dropout: float = 0.5,       # Dropout value
-        mask: torch.Tensor = None   # Mask value
     ):
         super().__init__()
 
         self.n_heads = n_heads
-        self.mask = mask
         self.scale = n_embeddings ** -0.5
         inner_dim = head_dim * n_heads
         project_out = not (n_heads == 1 and head_dim == n_embeddings)   # Check if we need to project the last vector
@@ -67,7 +62,7 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None):
         # Get input shape
         b, n, c = x.shape
 
@@ -78,13 +73,12 @@ class Attention(nn.Module):
         # Calculate the scores and normalize (dividing by the square root of head_dim)
         dots = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
-        # Calculate the mask value (used to reduce the importance of the masked vectors)
-        mask_value = -torch.finfo(dots.dtype).max
-
         # Apply mask if required
-        if self.mask is not None:
-            # Fill the scores (the "dots" matrix) with the mask values
-            dots.masked_fill(self.mask == 1, float('-inf'))  # Fill the mask with float(-inf) where it's equal to 1
+        if mask is not None:
+            # Reshape matrix: [max_length, batch_size] -> [max_length, 1, 1, batch_size]
+            mask = einops.rearrange(mask, 'l j -> l () () j')
+            # Fill the scores ("dots" matrix) with the mask values
+            dots.masked_fill_(mask == 1, float('-inf'))  # Fill the mask with float(-inf) where it's equal to 1
 
         # Softmax of the scores
         attention = dots.softmax(dim=-1)

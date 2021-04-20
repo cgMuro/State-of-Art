@@ -23,15 +23,12 @@ class TransformerTextEncoder(nn.Module):
         self.width = width
         self.tensor_type = tensor_type
 
-        # Define mask
-        mask = self.get_mask()
-
         # Define token and positional embeddings
         self.token_embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=width)
         self.positional_embedding = nn.Parameter(torch.empty(max_length, width))
 
         # Define transformer
-        self.transformer = Transformer(n_embeddings=width, n_blocks=n_blocks, n_heads=n_heads, head_dim=head_dim, dropout=dropout, mask=mask)
+        self.transformer = Transformer(n_embeddings=width, n_blocks=n_blocks, n_heads=n_heads, head_dim=head_dim, dropout=dropout)
 
         # Define modified layer normalization
         self.layernorm = ModifiedLayerNorm(width)
@@ -42,9 +39,9 @@ class TransformerTextEncoder(nn.Module):
         # Initialize parameters
         self.initialize_parameters()
 
-    def get_mask(self):
+    def get_mask(self, batch: int):
         """ Function that creates the mask for the transformer """
-        mask = torch.empty(self.max_length, self.max_length)  # Create empty mask
+        mask = torch.empty(self.max_length, batch)  # Create empty mask
         # mask.fill_(float('-inf'))  # Fill the entire mask with -inf
         mask.triu_(diagonal=1)  # Zero out the diagonal and the entries under the diagonal
         return mask
@@ -77,8 +74,11 @@ class TransformerTextEncoder(nn.Module):
         x = x + self.positional_embedding.type(self.tensor_type)
         x = x.permute(1, 0, 2)
 
+        # Define mask
+        mask = self.get_mask(batch=x.size()[1])
+        
         # Apply transformer, permute and normalize
-        x = self.transformer(x)
+        x = self.transformer(x, mask=mask)
         x = x.permute(1, 0, 2)  # shape = [batch_size, n_ctx, transformer.width]
         x = self.layernorm(x).type(self.tensor_type)
 

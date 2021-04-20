@@ -25,17 +25,27 @@ class CLIP(nn.Module):
     ):
         super().__init__()
 
+        self.max_length = max_length
+        self.image_size = image_size
         self.initial_temp = temperature[0]
         self.max_temp = temperature[1]
 
         # Define image encoder (Vision Transformer)
-        self.image_encoder = ViT(image_size=image_size, patch_size=patch_size, output_dim=emb_dim, width=vision_width, n_blocks=vision_blocks, n_heads=vision_heads, channels=3, head_dim=64, mask=None, dropout=0.5)
+        self.image_encoder = ViT(image_size=image_size, patch_size=patch_size, output_dim=emb_dim, width=vision_width, n_blocks=vision_blocks, n_heads=vision_heads, channels=3, head_dim=64, dropout=0.5)
 
         # Define text encoder (vanilla Transformer)
         self.text_encoder = TransformerTextEncoder(output_dim=emb_dim, vocab_size=vocab_size, max_length=max_length, width=text_width, n_blocks=text_blocks, n_heads=text_heads, head_dim=64, dropout=0.5, tensor_type=self.image_encoder.conv1.weight.dtype)
 
         # Define logit scale -> scales pairwise cosine similarities
         self.logit_scale = nn.Parameter(torch.tensor([np.log(1 / self.initial_temp)]))  # We use numpy because it seems to be more precise
+
+    def encode_image(self, image: torch.Tensor) -> torch.Tensor:
+        ''' Encodes an image '''
+        return self.image_encoder(image.type(self.image_encoder.conv1.weight.dtype))
+
+    def encode_text(self, text: torch.Tensor) -> torch.Tensor:
+        ''' Encodes text '''
+        return self.text_encoder(text)
 
     def forward(self, image: torch.Tensor, text: torch.Tensor):
         # Get image and text features

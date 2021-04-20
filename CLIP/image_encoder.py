@@ -35,7 +35,7 @@ class ViT(nn.Module):
         self.layernorm_post = ModifiedLayerNorm(width)
 
         # Define transformer
-        self.transformer = Transformer(n_embeddings=width, n_blocks=n_blocks, n_heads=n_heads, head_dim=head_dim, dropout=dropout, mask=mask)
+        self.transformer = Transformer(n_embeddings=width, n_blocks=n_blocks, n_heads=n_heads, head_dim=head_dim, dropout=dropout)
 
         # Define output projection layer
         self.out_proj = nn.Parameter(scale * torch.rand(width, output_dim))
