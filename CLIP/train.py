@@ -4,14 +4,6 @@ from tokenizer import SimpleTokenizer
 from utils import augment_image, tokenize
 
 
-# DATA
-
-data = [[torch.rand(3, 400, 400), torch.randint(low=0, high=76, size=(1, 76), dtype=torch.long)]]
-
-# Get tokenizer
-tokenizer = SimpleTokenizer()
-
-
 # TRAINING PARAMETERS
 BATCH_SIZE: int = 32768
 EPOCHS: int = 32
@@ -37,6 +29,17 @@ TEXT_WIDTH: int = 512             # Dimension for the text embeddings [possible 
 TEXT_HEADS: int =  8
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# Dummy data
+data = [
+    [
+        torch.rand(BATCH_SIZE, 3, 400, 400),
+        torch.randint(low=0, high=76, size=(BATCH_SIZE, 76), dtype=torch.long)
+    ]
+]
+
+# Get tokenizer
+tokenizer = SimpleTokenizer()
 
 # Get model
 model = CLIP(
@@ -74,7 +77,7 @@ for epoch in range(EPOCHS):
 
         # Augment image and set device
         images = images.to(DEVICE)
-        images = augment_image(images, size=IMAGE_SIZE)
+        images = torch.stack([augment_image(image, size=IMAGE_SIZE) for image in images])
 
         # Tokenize text and set device
         texts = tokenize(tokenizer, texts, max_length=MAX_LENGTH)
