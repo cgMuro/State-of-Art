@@ -1,9 +1,12 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Tuple
+import PIL
+from typing import Tuple, Union, List
 from image_encoder import ViT
 from text_encoder import TransformerTextEncoder
+from utils import augment_image
+from tokenizer import SimpleTokenizer
 
 class CLIP(nn.Module):
     def __init__(
@@ -46,6 +49,50 @@ class CLIP(nn.Module):
     def encode_text(self, text: torch.Tensor) -> torch.Tensor:
         ''' Encodes text '''
         return self.text_encoder(text)
+    
+    def predict(
+            self, 
+            # model: torch.nn.Module, 
+            images: Union[torch.Tensor, PIL.Image.Image], 
+            texts: Union[torch.Tensor, List[str]], 
+            tokenizer: SimpleTokenizer,
+            device: torch.DeviceObjType, 
+            top_k_returns: int = 5
+        ):
+            ''' Takes in a pretrained model, the processed images and texts, model's device, and returns the number ("top_k_returns") of top probabilities and labels '''
+
+            # Process images
+            images = torch.stack([augment_image(image, self.image_size) for image in images])
+            # Tokenize texts if needed
+            if isinstance(texts, list):
+                text_input = torch.zeros(len(texts), self.max_length, dtype=torch.long)
+                sot_token = tokenizer.encoder['<|startoftext|>']
+                eot_token = tokenizer.encoder['<|endoftext|>']
+
+                for i, tokens in enumerate(texts):
+                    tokens = [sot_token] + tokens + [eot_token]
+                    text_input[i, :len(tokens)] = torch.tensor(tokens)
+                
+                texts = text_input
+            
+            # Move tensors to device
+            images = images.to(device)
+            texts = texts.to(device)
+
+            # Get prediction from model
+            with torch.no_grad():
+                # Get image features
+                image_features = self.encode_image(images)
+                # Get text features and normalize
+                text_features = self.encode_text(texts)
+                text_features /= text_features.norm(dim=-1, keepdim=True)
+            
+            # Get text probabilities
+            text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+            # Get top 5 probabilities and labels
+            top_probs, top_labels = text_probs.cpu().topk(top_k_returns, dim=-1)
+
+            return top_probs, top_labels
 
     def forward(self, image: torch.Tensor, text: torch.Tensor):
         # Get image and text features
