@@ -1,7 +1,12 @@
+import os
+import hashlib
+import urllib
+import warnings
 import numpy as np
 import torch
 import torch.nn as nn
 import PIL
+from tqdm import tqdm
 from typing import Tuple, Union, List
 from image_encoder import ViT
 from text_encoder import TransformerTextEncoder
@@ -41,6 +46,11 @@ class CLIP(nn.Module):
 
         # Define logit scale -> scales pairwise cosine similarities
         self.logit_scale = nn.Parameter(torch.tensor([np.log(1 / self.initial_temp)]))  # We use numpy because it seems to be more precise
+
+    def load_pretrained_from_file(self, path: str):
+        clip = CLIP()
+        clip.load_state_dict(torch.load(path))
+        return clip
 
     def encode_image(self, image: torch.Tensor) -> torch.Tensor:
         ''' Encodes an image '''
