@@ -14,7 +14,7 @@ class ModifiedLayerNorm(nn.LayerNorm):
 
 
 # Image augmenter function
-def augment_image(image: typing.Union[torch.Tensor, PIL.Image.Image], size):
+def augment_image(image: typing.Union[torch.Tensor, PIL.Image.Image], size: int):
     if isinstance(image, torch.Tensor):
         # Define transformations to apply for input image of type torch.Tensor
         transform = transforms.Compose([
