@@ -1,5 +1,3 @@
-# Needs review
-
 import math
 import torch
 import torch.nn as nn
@@ -8,25 +6,25 @@ import torch.nn.functional as F
 
 class Transformer(nn.Module):
     """ Define the full Transformer behaviour """
-    def __init__(self, vocab_size, n_embedding, n_heads, n_layers, max_len=5000, dropout=0.5):
+    def __init__(self, vocab_size, n_embedding, n_heads, n_layers, max_len, dropout=0.5):
         super(Transformer, self).__init__()
         # Define dropout
         self.dropout = nn.Dropout(dropout)
         # Token embedding
-        self.token_embd = nn.Embedding(vocab_size, n_embedding)
+        self.token_embedding = nn.Embedding(vocab_size, n_embedding)
         # Positional embedding
-        self.positional_embd = PositionalEncoding(vocab_size, n_embedding, max_len)
+        self.positional_embedding = PositionalEncoding(vocab_size=vocab_size, n_embeddings=n_embedding, max_len=max_len)
         # Encoder Block
-        self.encoder = EncoderBlock(n_embedding, n_heads, n_layers, dropout)
+        self.encoder = EncoderBlock(n_embedding=n_embedding, n_heads=n_heads, n_layers=n_layers, max_len=max_len, dropout=dropout)
         # Decoder Block
-        self.decoder = DecoderBlock(n_embedding, n_heads, n_layers, dropout)
+        self.decoder = DecoderBlock(n_embedding=n_embedding, n_heads=n_heads, n_layers=n_layers, max_len=max_len, dropout=dropout)
         # Final Network
         self.fn = nn.Linear(n_embedding, vocab_size)
 
     def forward(self, x):
         # Embeddings
-        token_embeddings = self.token_embd(x)
-        positional_embeddings = self.positional_embd(x)
+        token_embeddings = self.token_embedding(x)
+        positional_embeddings = self.positional_embedding(x)
         x = self.dropout(token_embeddings + positional_embeddings)
 
         # Encoder
@@ -41,10 +39,9 @@ class Transformer(nn.Module):
 
         return res
 
-
 class PositionalEncoding(nn.Module):
     """ Define the process to calculate the positional embeddings """
-    def __init__(self, vocab_size, n_embeddings, max_len=5000):
+    def __init__(self, vocab_size, n_embeddings, max_len):
         super(PositionalEncoding, self).__init__()
 
         self.dropout = nn.Dropout(0.5)
@@ -67,10 +64,54 @@ class PositionalEncoding(nn.Module):
         x = x + self.dropout(self.pe[:x.size(0), :])
         return x
 
+class EncoderBlock(nn.Module):
+    def __init__(self, n_embedding, n_heads, n_layers, max_len, dropout=0.5):
+        super(EncoderBlock, self).__init__()
+
+        # Define Multi-headed attention
+        self.multiheadattention = MultiHeadedAttention(n_embedding=n_embedding, n_heads=n_heads, n_layers=n_layers, max_len=max_len, dropout=dropout)
+        # Define Feed Forward Network
+        self.fcn = nn.Sequential(
+            nn.Linear(n_embedding, 4*n_embedding),
+            nn.Dropout(dropout),
+            nn.GELU(),
+            nn.Linear(4*n_embedding, n_embedding),
+            nn.Dropout(dropout),
+        )
+        # Define normalization
+        self.norm = nn.LayerNorm(n_embedding)
+
+    def forward(self, x):
+        x = x + self.norm(self.multiheadattention(x))
+        x = x + self.norm(self.fcn(x))
+        return x
+
+class DecoderBlock(nn.Module):
+    def __init__(self, n_embedding, n_heads, n_layers, max_len, dropout=0.5):
+        super(DecoderBlock, self).__init__()
+
+        # Define Multi-Headed attention
+        self.multiheadattention = MultiHeadedAttention(n_embedding=n_embedding, n_heads=n_heads, n_layers=n_layers, max_len=max_len, dropout=dropout)
+        # Define Feed Forward Network
+        self.fcn = nn.Sequential(
+            nn.Linear(n_embedding, 4*n_embedding),
+            nn.Dropout(dropout),
+            nn.GELU(),
+            nn.Linear(4*n_embedding, n_embedding),
+            nn.Dropout(dropout),
+        )
+        # Define normalization
+        self.norm = nn.LayerNorm(n_embedding)
+
+    def forward(self, x, encoder_out):
+        x = x + self.norm(self.multiheadattention(x, mask=True))
+        x = x + self.norm(self.multiheadattention(x @ encoder_out, mask=True))
+        x = x + self.norm(self.fcn(x))
+        return x
 
 class MultiHeadedAttention(nn.Module):
     """ Define the Multi-headed Attention Block with masking """
-    def __init__(self, n_embedding, n_heads, n_layers, max_len=5000 ,dropout=0.5):
+    def __init__(self, n_embedding, n_heads, n_layers, max_len, dropout=0.5):
         super(MultiHeadedAttention, self).__init__()
 
         self.n_heads = n_heads
@@ -90,7 +131,7 @@ class MultiHeadedAttention(nn.Module):
         # Masking
         self.register_buffer(
             'mask', 
-            torch.tril(torch.ones(max_len, max_len)).view(1, 1, max_len, max_len)
+            torch.tril(torch.ones(size=(max_len, n_embedding))).view(max_len, 1, 1, n_embedding)
         )
 
     def forward(self, x, mask=None):
@@ -103,7 +144,7 @@ class MultiHeadedAttention(nn.Module):
         score = (q @ k.transpose(-1, -2)) / math.sqrt(self.n_embeddings)
         # Mask if requested
         if mask:
-            score = score.masked_fill(self.mask[:,:,:T,:T] == 0, float('-inf'))
+            score = score.masked_fill(self.mask == 0, float('-inf'))
         # Use softmax
         score = F.softmax(score, dim=-1)
         # Get final z vector
@@ -112,50 +153,3 @@ class MultiHeadedAttention(nn.Module):
         z = self.dropout(self.projection(z))
 
         return z
-
-
-class EncoderBlock(nn.Module):
-    def __init__(self, n_embedding, n_heads, n_layers, max_len=5000, dropout=0.5):
-        super(EncoderBlock, self).__init__()
-
-        # Define Multi-headed attention
-        self.multiheadattention = MultiHeadedAttention(n_embedding, n_heads, n_layers, max_len, dropout)
-        # Define Feed Forward Network
-        self.fcn = nn.Sequential(
-            nn.Linear(n_embedding, 4*n_embedding),
-            nn.Dropout(dropout),
-            nn.GELU(),
-            nn.Linear(4*n_embedding, n_embedding),
-            nn.Dropout(dropout),
-        )
-        # Define normalization
-        self.norm = nn.LayerNorm(n_embedding)
-
-    def forward(self, x):
-        x = x + self.norm(self.multiheadattention(x))
-        x = x + self.norm(self.fcn(x))
-        return x
-
-
-class DecoderBlock(nn.Module):
-    def __init__(self, n_embedding, n_heads, n_layers, max_len=5000, dropout=0.5):
-        super(DecoderBlock, self).__init__()
-
-        # Define Multi-Headed attention
-        self.multiheadattention = MultiHeadedAttention(n_embedding, n_heads, n_layers, max_len, dropout)
-        # Define Feed Forward Network
-        self.fcn = nn.Sequential(
-            nn.Linear(n_embedding, 4*n_embedding),
-            nn.Dropout(dropout),
-            nn.GELU(),
-            nn.Linear(4*n_embedding, n_embedding),
-            nn.Dropout(dropout),
-        )
-        # Define normalization
-        self.norm = nn.LayerNorm(n_embedding)
-
-    def forward(self, x, encoder_out):
-        x = x + self.norm(self.multiheadattention(x, mask=True))
-        x = x + self.norm(self.multiheadattention(x @ encoder_out, mask=True))
-        x = x + self.norm(self.fcn(x))
-        return x
