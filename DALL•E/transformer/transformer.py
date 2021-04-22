@@ -19,18 +19,31 @@ class Transformer(nn.Module):
     ):
         super().__init__()
  
+        # Define layer normalization
+        self.layernorm = nn.LayerNorm(emb_dim)
+
         # Define list of modules
         self.layers = nn.ModuleList([])
+
         # Add module to the list based on the "n_blocks" passed
-        for i in range(n_blocks):
+        for idx in range(n_blocks):
+            # Define the type of attention mask
+            if (idx-2) // 4 == 0:
+                attention_mode = 'column'
+            elif idx == len(n_blocks)-1:
+                attention_mode = 'convolutional'
+            else:
+                attention_mode = 'row'
+            
+            # Build block
             self.layers.append(nn.ModuleList([
                 # Multi-head attention block
-                Attention(n_embeddings=emb_dim, n_heads=n_heads, head_dim=head_dim, attention_mode=attention_mode, dropout=dropout),
+                LayerScale(emb_dim, idx + 1, self.layernorm(Attention(n_embeddings=emb_dim, n_heads=n_heads, head_dim=head_dim, attention_mode=attention_mode, dropout=dropout))),
                 # Feedforward block
-                FeedForward(width=emb_dim, dropout=dropout)
+                LayerScale(emb_dim, idx + 1, self.layernorm(FeedForward(width=emb_dim, dropout=dropout)))
             ]))
 
-        # Define modified layer normalization
+        # Define layer normalization
         self.layernorm_1 = nn.LayerNorm(emb_dim)
         self.layernorm_2 = nn.LayerNorm(emb_dim)
 
@@ -60,3 +73,24 @@ class FeedForward(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return self.net(x)
+
+
+class LayerScale(nn.Module):
+    def __init__(self, dim: int, depth: int, net: nn.Module):
+        super().__init__()
+        # Define initial epsilon
+        if depth <= 18:
+            init_eps = 0.1
+        elif depth >  18 and depth <= 24:
+            init_eps = 1e-5
+        else:
+            init_eps = 1e-6
+
+        # Define scale
+        scale = torch.zeros(1, 1, dim).fill_(init_eps)
+        self.scale = nn.Parameter(scale)
+
+        self.net = net
+
+    def forward(self, x):
+        return self.net(x) * self.scale        
