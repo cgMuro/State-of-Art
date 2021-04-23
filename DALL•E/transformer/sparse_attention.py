@@ -48,10 +48,9 @@ class Attention(nn.Module):
             #  Get mask
             mask = get_attention_mask(n=dots.size()[2], attention_mode=self.attention_mode)
             # Rearrange mask
-            # mask = einops.rearrange(mask, 'b j -> b () () j')
-            print('\n\n', mask, '\n\n')
+            mask = einops.rearrange(mask, 'b j -> b () () j')
             # Fill the scores (the "dots" matrix) with the mask values
-            dots.masked_fill(mask, float('-inf'))
+            dots.masked_fill_(mask == 1, float('-inf'))
             del mask
 
         # Softmax of the scores
@@ -91,7 +90,7 @@ def get_attention_mask(n: int, attention_mode: str, local_attention_ctx: int = 3
         q = z + x
         k = z + y
         c1 = q >= k
-        c2 = torch.tensor(torch.equal(torch.tensor((q - k) % stride), torch.tensor(0, dtype=torch.int)))
+        c2 = torch.tensor((q - k) % stride) == torch.tensor(0, dtype=torch.int)
         c3 = torch.logical_and(c1, c2)
         b = c3.type(torch.float32)
     else:
