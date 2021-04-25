@@ -46,11 +46,11 @@ class Attention(nn.Module):
         # Apply mask if required
         if self.attention_mode:
             #  Get mask
-            mask = get_attention_mask(n=dots.size()[2], attention_mode=self.attention_mode)
+            mask = get_attention_mask(n=x.size()[0], batch=x.size()[1], attention_mode='normal', local_attention_ctx=3)
             # Rearrange mask
             mask = einops.rearrange(mask, 'b j -> b () () j')
             # Fill the scores (the "dots" matrix) with the mask values
-            dots.masked_fill_(mask == 1, float('-inf'))
+            dots.masked_fill_(mask == 0, float('-inf'))
             del mask
 
         # Softmax of the scores
@@ -65,11 +65,11 @@ class Attention(nn.Module):
         return out
 
 
-def get_attention_mask(n: int, attention_mode: str, local_attention_ctx: int = 32):
-    ''' Generate 3 types of mask: normal, local, strided. Based on https://github.com/openai/sparse_attention/blob/c53f3bdbf6225be0582f0357072e82b13c69be7d/attention.py '''
+def get_attention_mask(n: int, batch: int, attention_mode: str, local_attention_ctx: int = 32):
+    ''' Generate 3 types of mask: normal, fixed, strided. Based on https://github.com/openai/sparse_attention/blob/c53f3bdbf6225be0582f0357072e82b13c69be7d/attention.py '''
     if attention_mode == 'normal':
-        b = torch.tril(torch.ones((n, n)), diagonal=0)
-    elif attention_mode == 'local':
+        b = torch.tril(torch.ones((n, batch)), diagonal=0)
+    elif attention_mode == 'column':
         bandwith = local_attention_ctx
         ctx = min(n - 1, bandwith - 1)
         
@@ -82,7 +82,7 @@ def get_attention_mask(n: int, attention_mode: str, local_attention_ctx: int = 3
             b.masked_fill_(b == -1, 0)
             b.masked_fill_(b == 2, 0)
 
-    elif attention_mode == 'strided':
+    elif attention_mode == 'row':
         stride = local_attention_ctx
         x = torch.arange(n, dtype=torch.int32).view(n, 1)
         y = torch.transpose(x, 0, 1)
@@ -90,11 +90,25 @@ def get_attention_mask(n: int, attention_mode: str, local_attention_ctx: int = 3
         q = z + x
         k = z + y
         c1 = q >= k
-        c2 = torch.tensor((q - k) % stride) == torch.tensor(0, dtype=torch.int)
+        c2 = ((q - k) % stride) == 0
         c3 = torch.logical_and(c1, c2)
         b = c3.type(torch.float32)
+
+        # stride = local_attention_ctx
+        # x = torch.arange(n, dtype=torch.int32).view(n, 1)
+        # y = torch.arange(batch, dtype=torch.int32)
+        # z = torch.zeros([batch, batch], dtype=torch.int32)
+        # q = z + x
+        # k = z + y
+        # c1 = q >= k
+        # c2 = ((q - k) % stride) == 0
+        # c3 = torch.logical_and(c1, c2)
+        # b = c3.type(torch.float32)
+    elif attention_mode == 'convolutional':
+        raise ValueError('Convolutional attention mask not yet implemented')
     else:
-        raise ValueError('Not yet implemented')
-    b = b.view([1, 1, n, n])
+        raise ValueError(f'{attention_mode} not yet implemented')
+
+    # b = b.view([1, 1, n, n])
 
     return b.type(torch.int)
