@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils import ModifiedConv2d
+from .utils import ModifiedConv2d
 
 # Defines bottleneck for ResNet
 class Bottleneck(nn.Module):

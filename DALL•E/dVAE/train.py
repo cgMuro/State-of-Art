@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 import einops
-from dvae import dVAE
-from utils import preprocess_image, map_image, unmap_image
+from .dvae import dVAE
+from .utils import preprocess_image, map_image, unmap_image
 
 
 # ----------------------------------- DATA ----------------------------------- #
