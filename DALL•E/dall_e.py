@@ -36,10 +36,24 @@ class DALLE(nn.Module):
         width = 1024
         self.transformer = Transformer(output_dim=output_dim, width=width, n_blocks=n_block, n_heads=n_heads, head_dim=head_dim, max_length=max_length, vocab_size=transformer_vocab_size, dropout=dropout)
 
+        # Output projection network
+        total_tokens = 32*32 + max_length   # image tokens + max text tokens
+
+        self.to_logits = nn.Sequential(
+            nn.LayerNorm(output_dim),
+            nn.Linear(output_dim, total_tokens)
+        )
+
     def forward(self, image: torch.Tensor, text: torch.Tensor) -> torch.Tensor:
         # dVAE -> get image embedding
-        image_embedding, _ = self.dvae(image)
+        image_embedding, image_logits = self.dvae(image)
+
         # Transformer -> get tokens
         tokens = self.transformer(text, image_embedding)
+        logits = self.to_logits(tokens)
 
-        return tokens
+        # Process image embedding
+        image_embedding = torch.argmax(image_embedding, dim=1)
+        image_embedding = einops.rearrange(image_embedding, 'b h w -> b (h w)')
+
+        return image_embedding, logits
