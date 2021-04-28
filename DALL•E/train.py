@@ -25,7 +25,6 @@ DVAE_VOCAB_SIZE: int = 8192
 IMAGE_SIZE: int = 256
 
 # transformer parameters
-OUTPUT_DIM: int = 32
 N_BLOCK: int = 1
 N_HEADS: int = 1
 HEAD_DIM: int = 1
@@ -38,7 +37,7 @@ DROPOUT: float = 0.5
 data = [
     [
         torch.rand(BATCH_SIZE, 3, 400, 400),
-        torch.randint(low=0, high=256, size=(BATCH_SIZE, MAX_LENGTH))
+        torch.randint(low=0, high=TRANSFORMER_VOCAB_SIZE, size=(BATCH_SIZE, MAX_LENGTH))
     ]
 ]
 
@@ -52,7 +51,6 @@ model = DALLE(
     out_planes=OUT_PLANES, 
     blocks_per_group=BLOCKS_PER_GROUP, 
     dVAE_vocab_size=DVAE_VOCAB_SIZE, 
-    output_dim=OUTPUT_DIM, 
     n_block=N_BLOCK, 
     n_heads=N_HEADS, 
     head_dim=HEAD_DIM, 
@@ -97,7 +95,6 @@ for epoch in range(EPOCHS):
         images_embedding, logits = model(image=images, text=texts)
         
         # Calculate loss
-        logits = einops.rearrange(logits, 'c b n -> b c n')                      # Rearrange logits: channels batch_size tokens -> batch_size channels tokens 
         labels = torch.cat((texts[:, :], images_embedding + MAX_LENGTH), dim=1)  # Concatenate text and image ground truths 
         # Image loss
         loss_image = criterion_image(logits[:, :, MAX_LENGTH:], labels[:, MAX_LENGTH:])
