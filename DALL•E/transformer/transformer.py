@@ -10,7 +10,6 @@ class Transformer(nn.Module):
     """ Architecture and logic for transformer """
     def __init__(
         self,
-        output_dim: int,                # Dimension of the output
         width: int,                     # Dimension for the embeddings
         n_blocks: int,                  # Number of blocks the transformer will have (i.e. its depth)
         n_heads: int,                   # Number of heads for the multihead attention
@@ -56,7 +55,7 @@ class Transformer(nn.Module):
         self.layernorm_2 = nn.LayerNorm(width)
 
         # Define projection
-        self.projection = nn.Parameter(torch.empty(width, output_dim))
+        self.projection = nn.Parameter(torch.empty(width, vocab_size))
 
     def forward(self, text: torch.Tensor, image_embedding: torch.Tensor) -> torch.Tensor:
         # Get index of the highest number along last dimension
@@ -81,8 +80,7 @@ class Transformer(nn.Module):
             x = x + attention(self.layernorm_1(x))     # Residual connection + attention
             x = x + feedforward(self.layernorm_2(x))   # Residual connection + feedforward
 
-        # Permute and normalize
-        x = x.permute(1, 0, 2)  # shape = [batch_size, n_ctx, transformer.width]
+        # Normalize
         x = self.layernorm(x)
 
         # Take features from the eot embedding (eot_token is the highest number in each sequence)
