@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import einops
 from dVAE.dvae import dVAE
+from dVAE.utils import unmap_image
 from transformer.transformer import Transformer
 
 class DALLE(nn.Module):
@@ -43,6 +44,33 @@ class DALLE(nn.Module):
             nn.LayerNorm(output_dim),
             nn.Linear(output_dim, total_tokens)
         )
+
+    @torch.no_grad()
+    def generate_images(self, text: torch.Tensor, image: torch.Tensor = None):
+        # Make sure text is of the right length
+        text = text[:, :self.max_len]
+
+        if image is not None:
+            # Get image embedding
+            image_embedding = self.dvae.encoder(image)
+            image_embedding = nn.functional.gumbel_softmax(image_embedding, tau=1.0, hard=False, dim=1)
+            # Get 14*32 tokens for priming
+            # image_embedding = image_embedding[:, :, :14, :14]
+        else:
+            # Pass in empty array to represent image
+            image_embedding = text[:, self.max_len:]
+
+        # Transformer
+        logits = self.transformer(text, image_embedding)
+        logits = self.to_logits(logits)
+        # Get only the image from logits then rearrange
+        logits = logits[self.max_len:, :, self.max_len:]
+        logits = einops.rearrange(logits, 'c b (w h) -> b c w h', h=int(math.sqrt(logits.size()[-1])))  # channels batch_size tokens ->  batch_size channels width height
+
+        # Get actual image
+        images = self.dvae.decoder(logits)
+
+        return unmap_image(images)
 
     def forward(self, image: torch.Tensor, text: torch.Tensor) -> torch.Tensor:
         # dVAE -> get image embedding
