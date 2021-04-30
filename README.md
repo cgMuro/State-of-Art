@@ -12,6 +12,8 @@ I linked all the resources used for both the theoretical understanding and the c
 * Adam Optimizer
 * AlexNet
 * Bidirectional Encoder Representations from Transformers (BERT)
+* Contrastive Language–Image Pre-training (CLIP)
+* DALL•E
 * Deep Q-Learning
 * Sequence to Sequence Network with Attention
 * Generative Adversarial Network (GAN)
@@ -21,8 +23,6 @@ I linked all the resources used for both the theoretical understanding and the c
 
 #### Next topics on the list
 * MuZero (DeepMind)
-* DALL•E (OpenAI)
-* CLIP (OpenAI)
 * TransGANs
 * More Computer Vision
 * FermiNet (DeepMind)
