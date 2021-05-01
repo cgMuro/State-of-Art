@@ -17,7 +17,7 @@ Usually, BERT, it's first pre-trained on two unsupervised tasks (*masked languag
 <br>
 
 ## Resources:
-* [*Paper*](https://arxiv.org/abs/1810.04805) (**Jacob Devlin**, **Ming-Wei Chang**, **Kenton Lee**, **Kristina Toutanova**)
+* Paper: [*"BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding"*](https://arxiv.org/abs/1810.04805) (**Jacob Devlin**, **Ming-Wei Chang**, **Kenton Lee**, **Kristina Toutanova**)
 * [*BERT Neural Network - EXPLAINED!*](https://www.youtube.com/watch?v=xI0HHN5XKDo) (**CodeEmporium**)
 * [*BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding*](https://www.youtube.com/watch?v=-9evrZnBorM) (**Yannic Kilcher**)
 * [*Hugging Face Transformer: Training and fine-tuning*](https://huggingface.co/transformers/training.html) (**Hugging Face**)
