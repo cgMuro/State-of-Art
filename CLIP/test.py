@@ -8,10 +8,10 @@ from utils import augment_image
 from tokenizer import SimpleTokenizer
 
 
-MODEL_PATH = ''                                            # File path to saved model
-DATA_DIR = ''                                              # File path to data directory
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'    # Set device (either cuda or cpu)
-tokenizer = SimpleTokenizer()                              # Init tokenizer
+MODEL_PATH: str = ''                                                           # File path to saved model
+DATA_DIR: str = ''                                                             # File path to data directory
+DEVICE: torch.DeviceObjType = 'cuda' if torch.cuda.is_available() else 'cpu'   # Set device (either cuda or cpu)
+tokenizer: SimpleTokenizer = SimpleTokenizer()                                 # Init tokenizer
 
 
 # ----------------------------------- DATA ----------------------------------- #
