@@ -1,7 +1,7 @@
 # https://pytorch.org/docs/master/_modules/torch/optim/adam.html
 
 import torch
-import torch.optim.functional as F
+import torch.nn.functional as F
 from torch.optim import Optimizer
 from typing import List
 import math
