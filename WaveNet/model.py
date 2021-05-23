@@ -9,10 +9,10 @@ from utils import mu_law_decoding
 class WaveNet(nn.Module):
     def __init__(
         self,
-        num_classes,
-        hidden,
-        kernel_size,
-        n_blocks
+        num_classes: int = 256,  # Number of classes
+        hidden: int = 128,       # Number of units in the hidden layer
+        kernel_size: int = 2,    # Size of convolutional layer kernel
+        n_blocks: int = 8        # Number of blocks composing the network
     ):
         super().__init__()
 
@@ -47,6 +47,7 @@ class WaveNet(nn.Module):
         num_samples: int = 10,  # Number of samples to generate
         first_samples = None    # Starting samples
     ):
+        """ Generates new samples given the number of samples to generate and optional initial samples. """
         # Model in prediction mode
         self.eval()
 
@@ -72,7 +73,7 @@ class WaveNet(nn.Module):
             input = input.scatter_(1, first_samples[sample+1:sample+2].view(1, -1, 1), 1.).view(1, self.num_classes, 1)
 
 
-        # Generate a new sample
+        # Generate new sample
 
         # Init generated samples array
         generated = np.array([])
@@ -141,15 +142,21 @@ class WaveNet(nn.Module):
 
 
 class DilatedCausalConv1d(nn.Conv1d):
+    """ 
+        Dilated Causal Convolutional layer implementation. 
+        It combines two concepts:
+            - causal convolution -> a convolutional layer that is able to respect the ordering of the data
+            - dilated convolution -> a convolutional layer where the filter is applied over an area larger than its length by skipping input values with a certain step
+    """
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        kernel_size,
-        stride=1,
-        dilation=1,
-        groups=1,
-        bias=True
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 1,
+        dilation: int = 1,
+        groups: int = 1,
+        bias: bool = True
     ):
         super().__init__(
             in_channels,
@@ -161,19 +168,23 @@ class DilatedCausalConv1d(nn.Conv1d):
             bias=bias
         )
 
+        # Define padding
         self.__padding = (kernel_size - 1) * dilation
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return super().forward(F.pad(input, (self.__padding, 0)))
 
 
-
 class GatedUnit(nn.Module):
+    """ 
+        Gated Unit implementation.
+        It takes the TanH and Sigmoid activation functions of the same input and then applies an element wise multiplication.
+    """
     def __init__(self):
         super().__init__()
 
         self.tanh = nn.Tanh()
-        self.sigmoind = nn.Sigmoid()
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.mul(self.tanh(x), self.sigmoind(x))
+        return torch.mul(self.tanh(x), self.sigmoid(x))
