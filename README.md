@@ -9,6 +9,9 @@ I linked all the resources used for both the theoretical understanding and the c
 <br>
 
 #### Topics covered
+* A2C
+* A3C
+* ACKTR
 * Adam Optimizer
 * AlexNet
 * Bidirectional Encoder Representations from Transformers (BERT)
@@ -19,12 +22,10 @@ I linked all the resources used for both the theoretical understanding and the c
 * Generative Adversarial Network (GAN)
 * Generative Pre-trained Transformer (GPT)
 * ResNet
-* Transformers (both in Computer Vision and Natural Language Processing)
+* Transformer (both in Computer Vision and Natural Language Processing)
+* WaveNet
 
 #### Next topics on the list
 * MuZero (DeepMind)
 * TransGANs
-* More Computer Vision
 * FermiNet (DeepMind)
-* WaveNet(DeepMind)
-* Some state of the art techniques for speech recognition and audio
